@@ -1,21 +1,18 @@
 import numpy as np
 import torch
+import torchvision
+import safetensors
+import safetensors.torch
+import shutil
 from tqdm.auto import tqdm
 
 from src.datasets.base_dataset import BaseDataset
 from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
-class ExampleDataset(BaseDataset):
-    """
-    Example of a nested dataset class to show basic structure.
-
-    Uses random vectors as objects and random integers between
-    0 and n_classes-1 as labels.
-    """
-
+class MNISTDataset(BaseDataset):
     def __init__(
-        self, input_length, n_classes, dataset_length, name="train", *args, **kwargs
+        self, name="train", *args, **kwargs
     ):
         """
         Args:
@@ -25,19 +22,16 @@ class ExampleDataset(BaseDataset):
                 this random dataset.
             name (str): partition name
         """
-        index_path = ROOT_PATH / "data" / "example" / name / "index.json"
+        index_path = ROOT_PATH / "data" / "mnist" / name / "index.json"
 
-        # each nested dataset class must have an index field that
-        # contains list of dicts. Each dict contains information about
-        # the object, including label, path, etc.
         if index_path.exists():
             index = read_json(str(index_path))
         else:
-            index = self._create_index(input_length, n_classes, dataset_length, name)
+            index = self._create_index(name)
 
         super().__init__(index, *args, **kwargs)
 
-    def _create_index(self, input_length, n_classes, dataset_length, name):
+    def _create_index(self, name):
         """
         Create index for the dataset. The function processes dataset metadata
         and utilizes it to get information dict for each element of
@@ -55,27 +49,25 @@ class ExampleDataset(BaseDataset):
                 such as label and object path.
         """
         index = []
-        data_path = ROOT_PATH / "data" / "example" / name
+        data_path = ROOT_PATH / "data" / "mnist" / name
         data_path.mkdir(exist_ok=True, parents=True)
 
-        # to get pretty object names
-        number_of_zeros = int(np.log10(dataset_length)) + 1
+        data = torchvision.datasets.MNIST(
+            str(data_path), train=(name == "train"), download=True, transform=torchvision.transforms.ToTensor()
+        )
 
-        # In this example, we create a synthesized dataset. However, in real
-        # tasks, you should process dataset metadata and append it
-        # to index. See other branches.
         print("Creating Example Dataset")
-        for i in tqdm(range(dataset_length)):
+        for i in tqdm(range(len(data))):
             # create dataset
-            example_path = data_path / f"{i:0{number_of_zeros}d}.pt"
-            example_data = torch.randn(input_length)
-            example_label = torch.randint(n_classes, size=(1,)).item()
-            torch.save(example_data, example_path)
+            img, label = data[i]
 
-            # parse dataset metadata and append it to index
-            index.append({"path": str(example_path), "label": example_label})
+            element_path = data_path / f"{i:06}.safetensors"
+            element = {"tensor": img}
+            safetensors.torch.save_file(element, element_path)
 
-        # write index to disk
+            index.append({"path": str(element_path), "label": label})
+
+        shutil.rmtree(data_path / "MNIST")
         write_json(index, str(data_path / "index.json"))
 
         return index

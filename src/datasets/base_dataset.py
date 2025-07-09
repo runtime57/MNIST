@@ -2,7 +2,7 @@ import logging
 import random
 from typing import List
 
-import torch
+import safetensors
 from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class BaseDataset(Dataset):
         Returns:
             data_object (Tensor):
         """
-        data_object = torch.load(path)
+        data_object = safetensors.torch.load_file(path)["tensor"]
         return data_object
 
     def preprocess_data(self, instance_data):

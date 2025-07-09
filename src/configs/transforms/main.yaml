@@ -1,0 +1,8 @@
+defaults:
+  - batch_transforms: mnist
+  - _self_
+
+# cause no instance_tranforms
+instance_transforms:
+    train: null
+    inference: null
